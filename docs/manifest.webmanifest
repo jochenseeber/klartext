@@ -1,0 +1,16 @@
+{
+  "name": "Klartext",
+  "short_name": "Klartext",
+  "description": "Browser-Erweiterung gegen Politiksprech",
+  "start_url": "/",
+  "scope": "/",
+  "display": "minimal-ui",
+  "background_color": "#f4efe4",
+  "theme_color": "#f4efe4",
+  "lang": "de",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

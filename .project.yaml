@@ -1,0 +1,8 @@
+project:
+  name: klartext
+git: true
+typescript: true
+web: true
+yaml: true
+github:
+  owner: jochenseeber

@@ -1,0 +1,47 @@
+{
+    "manifest_version": 3,
+    "name": "Klartext",
+    "short_name": "Klartext",
+    "version": "0.0.0",
+    "description": "Klartext statt Politikgelaber: Die Browser-Erweiterung, die politische Aussagen in verständliche Sprache übersetzt.",
+    "author": "Jochen Seeber",
+    "permissions": [
+        "storage"
+    ],
+    "browser_specific_settings": {
+        "gecko": {
+            "id": "klartext@seeber.me",
+            "strict_min_version": "140.0",
+            "data_collection_permissions": {
+                "required": ["none"]
+            }
+        },
+        "gecko_android": {
+            "strict_min_version": "142.0"
+        }
+    },
+    "icons": {
+        "16": "icons/icon-16.png",
+        "32": "icons/icon-32.png",
+        "48": "icons/icon-48.png",
+        "128": "icons/icon-128.png"
+    },
+    "action": {
+        "default_title": "Klartext",
+        "default_icon": {
+            "16": "icons/icon-16.png",
+            "32": "icons/icon-32.png"
+        }
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "<all_urls>"
+            ],
+            "js": [
+                "content.js"
+            ],
+            "run_at": "document_idle"
+        }
+    ]
+}

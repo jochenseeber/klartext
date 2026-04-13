@@ -1,0 +1,54 @@
+{
+    "compounds": [
+        {
+            "configurations": [
+                "Watch Extension",
+                "Launch Chrome"
+            ],
+            "name": "Launch Extension (Chrome)",
+            "stopAll": true
+        },
+        {
+            "configurations": [
+                "Watch Extension",
+                "Launch Firefox"
+            ],
+            "name": "Launch Extension (Firefox)",
+            "stopAll": true
+        }
+    ],
+    "configurations": [
+        {
+            "name": "Launch Chrome",
+            "request": "launch",
+            "runtimeArgs": [
+                "--no-first-run",
+                "--load-extension=${workspaceFolder}/dist"
+            ],
+            "type": "chrome",
+            "url": "https://zeit.de",
+            "userDataDir": "${workspaceFolder}/.tmp/chrome",
+            "webRoot": "${workspaceFolder}"
+        },
+        {
+            "addonPath": "${workspaceFolder}/dist",
+            "firefoxArgs": [
+                "-devtools"
+            ],
+            "keepProfileChanges": true,
+            "name": "Launch Firefox",
+            "profileDir": "${workspaceFolder}/.tmp/firefox",
+            "request": "launch",
+            "type": "firefox",
+            "url": "https://zeit.de"
+        },
+        {
+            "command": "pnpm dev",
+            "cwd": "${workspaceFolder}",
+            "name": "Watch Extension",
+            "request": "launch",
+            "type": "node-terminal"
+        }
+    ],
+    "version": "0.2.0"
+}

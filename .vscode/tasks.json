@@ -1,0 +1,114 @@
+{
+    "tasks": [
+        {
+            "args": [
+                "build"
+            ],
+            "command": "pnpm",
+            "group": "build",
+            "label": "build extension",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "type": "shell"
+        },
+        {
+            "args": [
+                "dev"
+            ],
+            "command": "pnpm",
+            "group": "build",
+            "isBackground": true,
+            "label": "watch extension",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": {
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": ".*",
+                    "endsPattern": "Watching for changes[.][.][.]"
+                },
+                "owner": "custom",
+                "pattern": {
+                    "file": 1,
+                    "regexp": "^(.*)$"
+                }
+            },
+            "type": "shell"
+        },
+        {
+            "command": "pnpm run changelog",
+            "label": "pnpm: changelog",
+            "problemMatcher": [],
+            "type": "shell"
+        },
+        {
+            "command": "pnpm run check:format",
+            "group": "test",
+            "label": "pnpm: check:format",
+            "problemMatcher": [],
+            "type": "shell"
+        },
+        {
+            "command": "pnpm run check:lint",
+            "group": "test",
+            "label": "pnpm: check:lint",
+            "problemMatcher": "$eslint-stylish",
+            "type": "shell"
+        },
+        {
+            "command": "pnpm run compile",
+            "group": {
+                "isDefault": true,
+                "kind": "build"
+            },
+            "label": "pnpm: compile",
+            "problemMatcher": "$tsc",
+            "type": "shell"
+        },
+        {
+            "command": "pnpm run format",
+            "label": "pnpm: format",
+            "problemMatcher": [],
+            "type": "shell"
+        },
+        {
+            "command": "pnpm run format:dprint",
+            "label": "pnpm: format:dprint",
+            "problemMatcher": [],
+            "type": "shell"
+        },
+        {
+            "command": "pnpm run format:eslint",
+            "label": "pnpm: format:eslint",
+            "problemMatcher": "$eslint-stylish",
+            "type": "shell"
+        },
+        {
+            "command": "pnpm run release",
+            "label": "pnpm: release",
+            "problemMatcher": [],
+            "type": "shell"
+        },
+        {
+            "command": "pnpm run test",
+            "group": {
+                "isDefault": true,
+                "kind": "test"
+            },
+            "label": "pnpm: test",
+            "problemMatcher": [],
+            "type": "shell"
+        },
+        {
+            "command": "pnpm run watch",
+            "isBackground": true,
+            "label": "pnpm: watch",
+            "problemMatcher": "$tsc-watch",
+            "type": "shell"
+        }
+    ],
+    "version": "2.0.0"
+}

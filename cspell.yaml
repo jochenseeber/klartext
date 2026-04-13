@@ -1,0 +1,31 @@
+---
+dictionaries:
+  - project-dictionary
+dictionaryDefinitions:
+  - addWords: true
+    name: project-dictionary
+    path: "./cspell.dict"
+  - addWords: true
+    name: project-dictionary-de
+    path: "./cspell_de.dict"
+ignorePaths:
+  - ".claude"
+  - ".git"
+  - ".playwright-mcp"
+  - ".serena"
+  - build
+  - cspell*.dict
+  - dist
+  - node_modules
+  - pkg
+  - pnpm-lock.yaml
+ignoreRegExpList:
+  - "/\\\\[a-zA-Z]/g"
+  - "/op:\\/\\/\\S+/g"
+language: de-DE,en-US
+overrides:
+  - dictionaries:
+      - project-dictionary-de
+    filename: docs/**/*.html
+    language: de-DE
+version: "0.2"
