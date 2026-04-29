@@ -1,6 +1,6 @@
 {
     "name": "klartext",
-    "version": "1.0.0-dev",
+    "version": "1.0.0",
     "description": "Der Klartext zu politischen Reden",
     "packageManager": "pnpm@10.7.1",
     "repository": {
