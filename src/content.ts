@@ -90,9 +90,9 @@ const REPLACEMENT_RULES = new Map<RegExp, ReplacementRule>([
         },
     ],
     [
-        /\b(?<prefix>\p{Lu}\p{L}*)(?:s)reform\b/gu,
+        /\b(?<prefix>\p{Lu}\p{L}*)reform\b/gu,
         {
-            replacement: (groups) => `Umverteilung von unten nach oben bei ${groups.prefix ?? ""}`,
+            replacement: (groups) => `Umverteilung von unten nach oben im ${groups.prefix ?? ""}-Bereich`,
         },
     ],
 ])
