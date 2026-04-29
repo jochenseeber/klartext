@@ -1,3 +1,7 @@
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { dirname, resolve } from "node:path"
+import { parseArgs } from "node:util"
+
 import {
     assertCleanWorkspace,
     capture,
@@ -5,15 +9,11 @@ import {
     parseVersion,
     readPackageJson,
     readReleaseConfig,
-    run,
+    ROOT,
     runEntrypoint,
     Version,
     writeVersion,
 } from "./util.js"
-
-import { createInterface } from "node:readline/promises"
-import { parseArgs } from "node:util"
-import { regenerateCurrentVersionChangelog } from "./changelog.js"
 
 function escapeRegExp(text: string): string {
     return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
@@ -27,6 +27,11 @@ const TAG_RE = new RegExp(
     `^${escapeRegExp(TAG_PREFIX)}(\\d+)\\.(\\d+)\\.(\\d+)(?:-[\\w.-]+)?$`,
 )
 
+const PLAN_PATH = resolve(ROOT, ".tmp/release-plan.json")
+
+type Phase = "plan" | "bump" | "commit" | "dev" | "propagate"
+const PHASES: readonly Phase[] = ["plan", "bump", "commit", "dev", "propagate"]
+
 type BumpChoice = "major" | "minor"
 
 interface BumpDecision {
@@ -38,6 +43,21 @@ interface VersionTriple {
     major: number
     minor: number
     patch: number
+}
+
+interface ReleasePlan {
+    currentVersion: string
+    releaseVersion: string
+    tag: string
+    branch: string | null
+    onReleaseBranch: boolean
+    releaseBranchName: string | null
+    releaseBranchNextDev: string | null
+    fromBranchNextDev: string | null
+}
+
+interface PlanOptions {
+    ref?: string
 }
 
 const git = (...args: string[]): string => capture("git", args)
@@ -120,58 +140,6 @@ function detectBumpFromVersionState(current: Version): BumpDecision {
     }
 }
 
-async function confirm(question: string): Promise<boolean> {
-    const rl = createInterface({ input: process.stdin, output: process.stdout })
-    const answer = (await rl.question(`${question} [y/N] `)).trim().toLowerCase()
-    rl.close()
-    return answer === "y" || answer === "yes"
-}
-
-interface ReleaseOptions {
-    skipConfirm: boolean
-    ref?: string
-}
-
-function printHelp(): void {
-    console.log(
-        `Usage: tsx scripts/release.ts [options]
-
-Cuts a release: bumps version, regenerates CHANGELOG.md, commits, and tags.
-
-By default operates on the current HEAD. Pass --ref to check out a specific
-commit, branch, or tag first.
-
-The release commit and tag are always created. Follow-up "next-dev" commits
-are only created when running at the tip of a branch ('main' or a release
-branch). On detached HEAD, only the release commit and tag are created.
-
-Options:
-  -h, --help         Show this help and exit
-  -y, --yes          Skip the interactive confirmation prompt
-      --ref <ref>    Check out <ref> before releasing (commit, branch, or tag)
-`,
-    )
-}
-
-function parseCliArgs(argv: string[]): ReleaseOptions | null {
-    const { values } = parseArgs({
-        args: argv,
-        options: {
-            help: { type: "boolean", short: "h" },
-            yes: { type: "boolean", short: "y" },
-            ref: { type: "string" },
-        },
-        strict: true,
-    })
-
-    if (values.help) {
-        printHelp()
-        return null
-    }
-
-    return { skipConfirm: values.yes ?? false, ref: values.ref }
-}
-
 function currentBranch(): string | null {
     try {
         return capture("git", ["symbolic-ref", "--short", "HEAD"])
@@ -190,22 +158,24 @@ function createTag(tag: string): void {
     git("tag", tag)
 }
 
-async function regenerateChangelog(): Promise<void> {
-    await regenerateCurrentVersionChangelog()
-    git("add", "CHANGELOG.md")
+function writePlan(plan: ReleasePlan): void {
+    mkdirSync(dirname(PLAN_PATH), { recursive: true })
+    writeFileSync(PLAN_PATH, `${JSON.stringify(plan, null, 4)}\n`)
 }
 
-async function main(): Promise<void> {
-    const options = parseCliArgs(process.argv.slice(2))
-
-    if (options === null) {
-        return
+function readPlan(): ReleasePlan {
+    if (!existsSync(PLAN_PATH)) {
+        throw new Error(`Release plan not found at ${PLAN_PATH}. Run 'release plan' first.`)
     }
 
-    await runRelease(options)
+    return JSON.parse(readFileSync(PLAN_PATH, "utf8")) as ReleasePlan
 }
 
-async function runRelease(options: ReleaseOptions): Promise<void> {
+function clearPlan(): void {
+    rmSync(PLAN_PATH, { force: true })
+}
+
+async function runPlan(options: PlanOptions): Promise<void> {
     assertCleanWorkspace()
 
     if (options.ref !== undefined) {
@@ -286,47 +256,148 @@ async function runRelease(options: ReleaseOptions): Promise<void> {
 
     console.log(`Tag to create  : ${tag}\n`)
 
-    if (!options.skipConfirm && !(await confirm("Proceed?"))) {
-        console.log("Aborted.")
-        process.exit(1)
-    }
-
     if (branch !== null && !onReleaseBranch) {
         git("branch", releaseBranchName!)
         git("checkout", releaseBranchName!)
     }
 
-    writeVersion(releaseStr)
-    await regenerateChangelog()
-    commitVersion(`chore: release ${releaseStr}`)
-    createTag(tag)
+    writePlan({
+        currentVersion: formatVersion(current),
+        releaseVersion: releaseStr,
+        tag,
+        branch,
+        onReleaseBranch,
+        releaseBranchName,
+        releaseBranchNextDev: releaseBranchNextDevStr,
+        fromBranchNextDev: fromBranchNextDevStr,
+    })
 
-    run("pnpm", ["package"])
+    console.log(`Plan written to ${PLAN_PATH}`)
+}
 
-    if (branch === null) {
+function runBump(): void {
+    const plan = readPlan()
+    writeVersion(plan.releaseVersion)
+}
+
+function runCommit(): void {
+    const plan = readPlan()
+    commitVersion(`chore: release ${plan.releaseVersion}`)
+    createTag(plan.tag)
+}
+
+function runDev(): void {
+    const plan = readPlan()
+
+    if (plan.branch === null || plan.releaseBranchNextDev === null) {
         const head = capture("git", ["rev-parse", "--short", "HEAD"])
-        console.log("\nDone.")
-        console.log(`  Release commit ${head} and tag ${tag} created on detached HEAD.`)
-        console.log(`  Push the tag with: git push origin ${tag}`)
-        console.log(`  The commit is not on a branch — cherry-pick or merge it where needed.`)
+        console.log()
+        console.log(`Release commit ${head} and tag ${plan.tag} created on detached HEAD.`)
+        console.log(`Push the tag with: git push origin ${plan.tag}`)
+        console.log("The commit is not on a branch — cherry-pick or merge it where needed.")
         return
     }
 
-    writeVersion(releaseBranchNextDevStr!)
-    commitVersion(`chore: start ${releaseBranchNextDevStr} development`)
+    writeVersion(plan.releaseBranchNextDev)
+    commitVersion(`chore: start ${plan.releaseBranchNextDev} development`)
+}
 
-    if (fromBranchNextDevStr) {
-        git("checkout", branch)
-        git("checkout", releaseBranchName!, "--", "CHANGELOG.md")
-        writeVersion(fromBranchNextDevStr)
-        commitVersion(`chore: start ${fromBranchNextDevStr} development`)
+function runPropagate(): void {
+    const plan = readPlan()
+
+    if (plan.branch === null) {
+        clearPlan()
+        return
+    }
+
+    if (plan.fromBranchNextDev) {
+        git("checkout", plan.branch)
+        git("checkout", plan.tag, "--", "CHANGELOG.md")
+        writeVersion(plan.fromBranchNextDev)
+        commitVersion(`chore: start ${plan.fromBranchNextDev} development`)
     }
 
     console.log("\nDone. Next steps:")
-    console.log(`  git push origin ${releaseBranchName} ${tag}`)
+    console.log(`  git push origin ${plan.releaseBranchName} ${plan.tag}`)
 
-    if (fromBranchNextDevStr) {
-        console.log(`  git push origin ${branch}`)
+    if (plan.fromBranchNextDev) {
+        console.log(`  git push origin ${plan.branch}`)
+    }
+
+    clearPlan()
+}
+
+function printHelp(): void {
+    console.log(
+        `Usage: tsx scripts/release.ts <phase> [options]
+
+Phases (run in order, typically orchestrated via nx):
+  plan        Validate workspace, decide versions, prompt for confirmation,
+              create the release branch (if on main), and write the plan to
+              .tmp/release-plan.json.
+  bump        Write the release version to package.json (no commit yet).
+  commit      Stage package.json + CHANGELOG.md, create the release commit,
+              and tag it. (Runs after the changelog task regenerates
+              CHANGELOG.md.)
+  dev         Bump the release branch to its next-dev version and commit.
+  propagate   If released from main, switch to main, copy the CHANGELOG.md
+              from the release branch, bump main to its next-dev version,
+              and commit. Always clears the plan file when done.
+
+Options (only meaningful for 'plan'):
+  -h, --help         Show this help and exit
+      --ref <ref>    Check out <ref> before planning the release
+`,
+    )
+}
+
+function isPhase(value: string): value is Phase {
+    return (PHASES as readonly string[]).includes(value)
+}
+
+async function main(): Promise<void> {
+    const { values, positionals } = parseArgs({
+        args: process.argv.slice(2),
+        options: {
+            help: { type: "boolean", short: "h" },
+            ref: { type: "string" },
+        },
+        allowPositionals: true,
+        strict: true,
+    })
+
+    if (values.help) {
+        printHelp()
+        return
+    }
+
+    if (positionals.length !== 1) {
+        printHelp()
+        throw new Error(`Expected exactly one phase argument; got ${positionals.length}`)
+    }
+
+    const phase = positionals[0]
+
+    if (!isPhase(phase)) {
+        throw new Error(`Unknown phase '${phase}'. Expected one of: ${PHASES.join(", ")}`)
+    }
+
+    switch (phase) {
+        case "plan":
+            await runPlan({ ref: values.ref })
+            break
+        case "bump":
+            runBump()
+            break
+        case "commit":
+            runCommit()
+            break
+        case "dev":
+            runDev()
+            break
+        case "propagate":
+            runPropagate()
+            break
     }
 }
 

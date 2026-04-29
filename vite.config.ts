@@ -18,7 +18,7 @@ function emitVersionedManifestPlugin(): Plugin {
             const template = JSON.parse(readFileSync(manifestTemplatePath, "utf8")) as { version: string }
             const pkg = JSON.parse(readFileSync(packageJsonPath, "utf8")) as { version: string }
 
-            template.version = pkg.version
+            template.version = pkg.version.includes("-") ? "0.0.0" : pkg.version
 
             this.emitFile({
                 type: "asset",

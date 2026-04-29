@@ -1,0 +1,310 @@
+{
+    "$schema": "./node_modules/nx/schemas/project-schema.json",
+    "name": "klartext",
+    "projectType": "application",
+    "sourceRoot": "src",
+    "targets": {
+        "build": {
+            "executor": "nx:run-commands",
+            "options": { "command": "vite build" },
+            "cache": true,
+            "dependsOn": ["generate"],
+            "inputs": [
+                "production",
+                "{projectRoot}/src/**/*",
+                "{projectRoot}/static/**/*",
+                "{projectRoot}/vite.config.ts",
+                { "externalDependencies": ["vite"] }
+            ],
+            "outputs": ["{projectRoot}/dist"]
+        },
+        "changelog": {
+            "executor": "nx:run-commands",
+            "options": { "command": "tsx scripts/changelog.ts" },
+            "cache": false
+        },
+        "check": {
+            "executor": "nx:noop",
+            "dependsOn": ["check:format", "check:lint", "check:types"]
+        },
+        "check:format": {
+            "executor": "nx:run-commands",
+            "options": { "command": "dprint check" },
+            "dependsOn": ["generate"],
+            "cache": true,
+            "inputs": [
+                "default",
+                "{workspaceRoot}/dprint.json"
+            ]
+        },
+        "check:lint": {
+            "executor": "nx:run-commands",
+            "options": { "command": "eslint ." },
+            "dependsOn": ["generate"],
+            "cache": true,
+            "inputs": [
+                "{projectRoot}/src/**/*.ts",
+                "{projectRoot}/spec/**/*.ts",
+                "{projectRoot}/scripts/**/*.ts",
+                "{projectRoot}/web-ext-config.cjs",
+                "{workspaceRoot}/eslint.config.mjs",
+                { "externalDependencies": ["eslint", "typescript-eslint", "@stylistic/eslint-plugin"] }
+            ]
+        },
+        "check:types": {
+            "executor": "nx:run-commands",
+            "options": { "command": "tsc --noEmit" },
+            "dependsOn": ["generate"],
+            "cache": true,
+            "inputs": [
+                "{projectRoot}/src/**/*.ts",
+                "{projectRoot}/spec/**/*.ts",
+                "{projectRoot}/scripts/**/*.ts",
+                "{workspaceRoot}/tsconfig.json",
+                { "externalDependencies": ["typescript"] }
+            ]
+        },
+        "clean": {
+            "executor": "nx:run-commands",
+            "options": { "command": "rm -rf dist pkg" },
+            "cache": false
+        },
+        "stage": {
+            "executor": "nx:noop",
+            "dependsOn": ["stage:generate", "stage:check"]
+        },
+        "stage:generate": {
+            "executor": "nx:noop",
+            "dependsOn": ["docs", "format"]
+        },
+        "stage:check": {
+            "executor": "nx:noop",
+            "dependsOn": ["stage:generate", "check", "test"]
+        },
+        "dev": {
+            "executor": "nx:run-commands",
+            "options": { "command": "vite build --watch", "env": { "NODE_ENV": "development" } },
+            "cache": false,
+            "dependsOn": ["generate"]
+        },
+        "docs": {
+            "executor": "nx:noop",
+            "dependsOn": ["docs:fonts", "docs:icons", "docs:screenshot", "docs:social"]
+        },
+        "docs:fonts": {
+            "executor": "nx:run-commands",
+            "options": { "command": "tsx scripts/build-fonts.ts" },
+            "cache": true,
+            "inputs": [
+                "{projectRoot}/artwork/fonts/**/*.ttf",
+                "scripts",
+                { "externalDependencies": ["subset-font"] }
+            ],
+            "outputs": ["{projectRoot}/docs/fonts/*.woff2"]
+        },
+        "docs:icons": {
+            "executor": "nx:run-commands",
+            "options": { "command": "tsx scripts/build-icons.ts" },
+            "cache": true,
+            "inputs": [
+                "{projectRoot}/artwork/icon.svg",
+                "scripts",
+                { "externalDependencies": ["sharp", "to-ico"] }
+            ],
+            "outputs": [
+                "{projectRoot}/docs/icons",
+                "{projectRoot}/docs/favicon.ico"
+            ]
+        },
+        "docs:screenshot": {
+            "executor": "nx:run-commands",
+            "options": { "command": "tsx scripts/build-screenshot.ts" },
+            "cache": true,
+            "inputs": [
+                "{projectRoot}/artwork/web/screenshot.png",
+                "scripts",
+                { "externalDependencies": ["sharp"] }
+            ],
+            "outputs": [
+                "{projectRoot}/docs/assets/screenshot.avif",
+                "{projectRoot}/docs/assets/screenshot.webp",
+                "{projectRoot}/docs/assets/screenshot.png"
+            ]
+        },
+        "docs:social": {
+            "executor": "nx:run-commands",
+            "options": { "command": "tsx scripts/build-social.ts" },
+            "cache": true,
+            "inputs": [
+                "{projectRoot}/artwork/web/screenshot.png",
+                "scripts",
+                { "externalDependencies": ["sharp"] }
+            ],
+            "outputs": [
+                "{projectRoot}/docs/assets/social-card.jpg",
+                "{projectRoot}/docs/assets/x-card.jpg"
+            ]
+        },
+        "format": {
+            "executor": "nx:noop",
+            "cache": false,
+            "dependsOn": ["format:dprint", "format:eslint"]
+        },
+        "format:dprint": {
+            "executor": "nx:run-commands",
+            "options": { "command": "dprint fmt" },
+            "cache": false,
+            "inputs": ["default", "{workspaceRoot}/dprint.json"]
+        },
+        "format:eslint": {
+            "executor": "nx:run-commands",
+            "options": { "command": "eslint . --fix" },
+            "cache": false
+        },
+        "generate": {
+            "executor": "nx:noop",
+            "dependsOn": ["generate:icons"]
+        },
+        "generate:icons": {
+            "executor": "nx:run-commands",
+            "options": { "command": "tsx scripts/generate-icons.ts" },
+            "cache": true,
+            "inputs": [
+                "{projectRoot}/artwork/icon.svg",
+                "{projectRoot}/src/manifest.json",
+                "scripts",
+                { "externalDependencies": ["sharp"] }
+            ],
+            "outputs": ["{projectRoot}/static/icons"]
+        },
+        "package": {
+            "executor": "nx:noop",
+            "dependsOn": ["package:bin", "package:lint", "package:source"]
+        },
+        "package:bin": {
+            "executor": "nx:run-commands",
+            "options": { "command": "tsx scripts/package-bin.ts" },
+            "cache": true,
+            "dependsOn": ["build"],
+            "inputs": [
+                "{projectRoot}/dist/**/*",
+                "{projectRoot}/.extensionignore",
+                "{projectRoot}/package.json",
+                "{projectRoot}/scripts/package-bin.ts",
+                "{projectRoot}/scripts/util.ts"
+            ],
+            "outputs": ["{projectRoot}/pkg/klartext-*.zip"]
+        },
+        "package:lint": {
+            "executor": "nx:run-commands",
+            "options": { "command": "web-ext lint --source-dir=dist --warnings-as-errors" },
+            "cache": true,
+            "dependsOn": ["build"],
+            "inputs": [
+                "{projectRoot}/dist/**/*",
+                "{projectRoot}/web-ext-config.cjs",
+                "{projectRoot}/.extensionignore",
+                { "externalDependencies": ["web-ext"] }
+            ]
+        },
+        "package:source": {
+            "executor": "nx:run-commands",
+            "options": { "command": "tsx scripts/package-source.ts" },
+            "cache": true,
+            "inputs": [
+                "{projectRoot}/package.json",
+                "{projectRoot}/pnpm-lock.yaml",
+                "{projectRoot}/tsconfig.json",
+                "{projectRoot}/vite.config.ts",
+                "{projectRoot}/README.md",
+                "{projectRoot}/LICENSE.txt",
+                "{projectRoot}/src/**/*",
+                "{projectRoot}/scripts/package-source.ts",
+                "{projectRoot}/scripts/util.ts"
+            ],
+            "outputs": ["{projectRoot}/pkg/klartext-*-source.zip"]
+        },
+        "release": {
+            "executor": "nx:noop",
+            "dependsOn": ["release:propagate"]
+        },
+        "release:plan": {
+            "executor": "nx:run-commands",
+            "options": { "command": "tsx scripts/release.ts plan" },
+            "cache": false,
+            "dependsOn": ["check", "test"]
+        },
+        "release:bump": {
+            "executor": "nx:run-commands",
+            "options": { "command": "tsx scripts/release.ts bump" },
+            "cache": false,
+            "dependsOn": ["release:plan"]
+        },
+        "release:changelog": {
+            "executor": "nx:run-commands",
+            "options": { "command": "tsx scripts/changelog.ts" },
+            "cache": false,
+            "dependsOn": ["release:bump"]
+        },
+        "release:commit": {
+            "executor": "nx:run-commands",
+            "options": { "command": "tsx scripts/release.ts commit" },
+            "cache": false,
+            "dependsOn": ["release:changelog"]
+        },
+        "release:package": {
+            "executor": "nx:noop",
+            "cache": false,
+            "dependsOn": ["release:commit", "package"]
+        },
+        "release:dev": {
+            "executor": "nx:run-commands",
+            "options": { "command": "tsx scripts/release.ts dev" },
+            "cache": false,
+            "dependsOn": ["release:package"]
+        },
+        "release:propagate": {
+            "executor": "nx:run-commands",
+            "options": { "command": "tsx scripts/release.ts propagate" },
+            "cache": false,
+            "dependsOn": ["release:dev"]
+        },
+        "ship": {
+            "executor": "nx:noop",
+            "dependsOn": ["ship:github", "ship:mozilla", "ship:chrome"]
+        },
+        "ship:chrome": {
+            "executor": "nx:run-commands",
+            "options": { "command": "tsx scripts/ship-chrome.ts" },
+            "cache": false,
+            "dependsOn": ["package"]
+        },
+        "ship:github": {
+            "executor": "nx:run-commands",
+            "options": { "command": "tsx scripts/ship-github.ts" },
+            "cache": false,
+            "dependsOn": ["package"]
+        },
+        "ship:mozilla": {
+            "executor": "nx:run-commands",
+            "options": { "command": "tsx scripts/ship-mozilla.ts" },
+            "cache": false,
+            "dependsOn": ["package"]
+        },
+        "test": {
+            "executor": "nx:noop",
+            "dependsOn": ["test:unit"]
+        },
+        "test:unit": {
+            "executor": "nx:run-commands",
+            "options": { "command": "vitest run spec" },
+            "cache": true,
+            "inputs": [
+                "{projectRoot}/src/**/*",
+                "{projectRoot}/spec/**/*",
+                "{projectRoot}/tsconfig.json",
+                { "externalDependencies": ["vitest"] }
+            ]
+        }
+    }
+}

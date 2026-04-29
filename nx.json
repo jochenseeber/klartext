@@ -1,0 +1,35 @@
+{
+    "$schema": "./node_modules/nx/schemas/nx-schema.json",
+    "namedInputs": {
+        "default": [
+            "{projectRoot}/**/*",
+            "sharedGlobals"
+        ],
+        "production": [
+            "default",
+            "!{projectRoot}/spec/**/*",
+            "!{projectRoot}/docs/**/*",
+            "!{projectRoot}/.github/**/*",
+            "!{projectRoot}/CHANGELOG.md",
+            "!{projectRoot}/README.md",
+            "!{projectRoot}/PUBLISHING.md"
+        ],
+        "scripts": [
+            "{projectRoot}/scripts/**/*.ts"
+        ],
+        "sharedGlobals": [
+            "{workspaceRoot}/tsconfig.json",
+            "{workspaceRoot}/eslint.config.mjs",
+            "{workspaceRoot}/dprint.json"
+        ]
+    },
+    "targetDefaults": {
+        "build": {
+            "cache": true
+        },
+        "test": {
+            "cache": true
+        }
+    },
+    "analytics": false
+}

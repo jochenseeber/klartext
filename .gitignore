@@ -6,6 +6,8 @@
 .claude/settings.local.json
 .claude/workspaces
 .claude/worktrees
+.nx/cache
+.nx/workspace-data
 .playwright-mcp/
 .pnpm-store/
 .remember

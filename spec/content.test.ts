@@ -32,7 +32,7 @@ describe("applyReplacementRules", () => {
             "Das Gesetz zur Umverteilung von unten nach oben ist beschlossen.",
         )
         expect(applyReplacementRules("Eine Verwaltungsreform folgt.")).toBe(
-            "Eine Umverteilung von unten nach oben bei Verwaltung folgt.",
+            "Eine Umverteilung von unten nach oben im Verwaltungs-Bereich folgt.",
         )
     })
 
