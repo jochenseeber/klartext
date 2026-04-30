@@ -1,4 +1,4 @@
-import { readPackageJson, readReleaseConfig, ROOT, runEntrypoint, writeFormattedTextFile } from "./util.js"
+import { capture, readPackageJson, readReleaseConfig, ROOT, runEntrypoint, writeFormattedTextFile } from "./util.js"
 
 import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
@@ -35,13 +35,75 @@ function hasVersionSection(body: string, version: string): boolean {
     return new RegExp(`^##\\s+\\[?${escaped}[\\]\\s(]`, "m").test(body)
 }
 
-async function generateEntries(): Promise<string> {
+function escapeRegex(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+function findChangelogFromRef(): string | null {
+    const { refPrefix, branchSuffix } = readReleaseConfig()
+    const releaseBranchRe = new RegExp(
+        `(?:^|remotes/[^/]+/)${escapeRegex(refPrefix)}\\d+\\.\\d+${escapeRegex(branchSuffix)}$`,
+    )
+
+    // Build commit → children map from the full repo graph.
+    const childrenMap = new Map<string, string[]>()
+
+    for (const line of capture("git", ["rev-list", "--children", "--all"]).split("\n")) {
+        const parts = line.trim().split(/\s+/).filter(Boolean)
+
+        if (parts.length > 0 && parts[0]) {
+            childrenMap.set(parts[0], parts.slice(1))
+        }
+    }
+
+    // Walk the first-parent chain from HEAD.
+    const chain = capture("git", ["log", "--first-parent", "--format=%H"]).split("\n").filter(Boolean)
+
+    for (let i = 0; i < chain.length; i++) {
+        const commit = chain[i]
+
+        // A release tag on the current commit means we're walking into a release branch — stop here.
+        const tags = capture("git", ["tag", "--points-at", commit, "--list", `${refPrefix}*`])
+            .split("\n")
+            .map((t) => t.trim())
+            .filter(Boolean)
+
+        if (tags.length > 0) {
+            return tags[0]
+        }
+
+        // Check whether any child other than the one we just came from is on a release branch.
+        const cameFrom = i > 0 ? chain[i - 1] : null
+        const children = childrenMap.get(commit) ?? []
+
+        for (const child of children) {
+            if (child === cameFrom) continue
+
+            const branches = capture("git", ["branch", "--contains", child, "--all"])
+                .split("\n")
+                .map((b) => b.replace(/^\*?\s+/, "").trim())
+                .filter(Boolean)
+
+            if (branches.some((b) => releaseBranchRe.test(b))) {
+                return commit
+            }
+        }
+    }
+
+    return null
+}
+
+async function generateEntries(fromRef: string | null): Promise<string> {
     const { ConventionalChangelog } = await import("conventional-changelog")
     const generator = new ConventionalChangelog(ROOT)
         .loadPreset("conventionalcommits")
         .readPackage()
         .tags({ prefix: TAG_PREFIX })
         .options({ outputUnreleased: true, releaseCount: 1 })
+
+    if (fromRef) {
+        generator.commits({ from: fromRef })
+    }
 
     let out = ""
 
@@ -66,6 +128,7 @@ function writeChangelog(body: string, dryRun: boolean): void {
 
 export interface RegenerateChangelogOptions {
     dryRun?: boolean
+    commit?: string
 }
 
 export async function regenerateCurrentVersionChangelog(
@@ -80,7 +143,8 @@ export async function regenerateCurrentVersionChangelog(
         return
     }
 
-    const entries = await generateEntries()
+    const fromRef = options.commit ?? findChangelogFromRef()
+    const entries = await generateEntries(fromRef)
     const combined = entries ? body ? `${entries}\n\n${body}` : entries : body
     writeChangelog(combined, dryRun)
 }
@@ -94,8 +158,9 @@ Adds a section for the current package.json version if one is not present.
 Idempotent — re-running with no new commits produces the same file.
 
 Options:
-  -h, --help     Show this help and exit
-  -n, --dry-run  Print the rendered changelog to stdout without writing the file
+  -h, --help            Show this help and exit
+  -n, --dry-run         Print the rendered changelog to stdout without writing the file
+  -c, --commit <ref>    Use this commit/tag as the starting point instead of auto-detecting
 `,
     )
 }
@@ -106,6 +171,7 @@ async function main(): Promise<void> {
         options: {
             help: { type: "boolean", short: "h" },
             "dry-run": { type: "boolean", short: "n" },
+            commit: { type: "string", short: "c" },
         },
         strict: true,
     })
@@ -115,7 +181,7 @@ async function main(): Promise<void> {
         return
     }
 
-    await regenerateCurrentVersionChangelog({ dryRun: values["dry-run"] ?? false })
+    await regenerateCurrentVersionChangelog({ dryRun: values["dry-run"] ?? false, commit: values.commit })
 }
 
 runEntrypoint(import.meta.url, main)
