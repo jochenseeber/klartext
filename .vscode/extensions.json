@@ -17,7 +17,6 @@
         "dprint.dprint",
         "eamodio.gitlens",
         "editorconfig.editorconfig",
-        "esbenp.prettier-vscode",
         "firefox-devtools.vscode-firefox-debug",
         "formulahendry.code-runner",
         "foxundermoon.shell-format",

@@ -52,47 +52,303 @@ function uc(value: string): string {
     return `${firstCharacter.toLocaleUpperCase("de-DE")}${rest.join("")}`
 }
 
+// Rules are evaluated in insertion order; the first match wins. Each rule
+// captures one shape of "Reform"/"Entlastung"/"Deregulierung" usage and
+// rewrites it to "Umverteilung von unten nach oben" with grammar fixes.
+//
+// Order rationale (specific → generic):
+//   0    Preprocessing (strip invisible characters).
+//   0a–0n Specific lexical forms that generic rules would handle awkwardly.
+//   1    Term followed by "der" — preserves the article structure.
+//   2    Compound where the term is the suffix (Rentenreform → Rentenumverteilung).
+//   2b–2e Patterns intercepted before rule 3 (verb, "von", quoted lowercase).
+//   3    Standalone term, optionally plural.
+//   3b–3e Specific compound-prefix forms intercepted before rule 4.
+//   4    Compound where the term is the prefix (Reformkonzept) — catch-all.
 const REPLACEMENT_RULES = new Map<RegExp, ReplacementRule>([
+    // 0. Strip zero-width spaces that web articles sometimes contain.
     [
-        /\b(?:Reform der|Deregulierung der)\b/gu,
+        /​/gu,
+        { replacement: () => "" },
+    ],
+
+    // 0a. "Strukturreform" — adjective form reads better than a compound.
+    //     "Strukturreform"   → "strukturelle Umverteilung von unten nach oben"
+    //     "Strukturreformen" → "strukturelle Umverteilungen von unten nach oben"
+    [
+        /\bStrukturreform(?<plural>en)?\b/gu,
+        {
+            replacement: (groups) => `strukturelle Umverteilung${groups.plural ? "en" : ""} von unten nach oben`,
+        },
+    ],
+
+    // 0b. Compound starts where the suffix is a genitive-attractor.
+    //     "Reformpolitiker"  → "Politiker der Umverteilung von unten nach oben"
+    //     "Reformkurs"       → "Kurs der Umverteilung von unten nach oben"
+    [
+        /\b(?:Reform|Entlastungs|Deregulierungs)-?(?<suffix>politiker|politik|kurs|weg|aktivität(?:en)?|prozess)\b/gu,
+        {
+            replacement: (groups) => `${uc(groups.suffix ?? "")} der Umverteilung von unten nach oben`,
+        },
+    ],
+
+    // 0c. "*bedarf" — fixed collocation "Bedarf an".
+    //     "Reformbedarf" → "Bedarf an Umverteilung von unten nach oben"
+    [
+        /\b(?:Reform|Entlastungs|Deregulierungs)-?bedarf\b/gu,
+        {
+            replacement: () => "Bedarf an Umverteilung von unten nach oben",
+        },
+    ],
+
+    // 0d. "Entlastung(en) der <people>" — "für die <people>" reads naturally.
+    //     "Entlastung der Bürger" → "Umverteilung von unten nach oben für die Bürger"
+    [
+        /\b(?:Entlastung|Entlastungen) der (?<recipient>Bürger(?:innen)?|Bundesbürger(?:innen)?|Verbraucher(?:innen)?|Arbeitnehmer(?:innen)?|Arbeitgeber(?:innen)?|Mitarbeiter(?:innen)?|Beschäftigten|Familien|Steuerzahler(?:innen)?|Versicherten)\b/gu,
+        {
+            replacement: (groups) => `Umverteilung von unten nach oben für die ${groups.recipient}`,
+        },
+    ],
+
+    // 0e. "<Law>gesetz-Reform" — drop "-Reform", use "beim <Gesetz>".
+    //     "Heizungsgesetz-Reform" → "Umverteilung von unten nach oben beim Heizungsgesetz"
+    [
+        /\b(?<law>\p{Lu}\p{L}*gesetz)-?(?:Reform|Entlastung|Deregulierung)(?:en)?\b/gu,
+        {
+            replacement: (groups) => `Umverteilung von unten nach oben beim ${groups.law ?? ""}`,
+        },
+    ],
+
+    // 0f. "Reform des <Law>gesetzes" — genitive law name, use "beim <Gesetz>".
+    //     "Reform des Heizungsgesetzes" → "Umverteilung von unten nach oben beim Heizungsgesetz"
+    [
+        /\b(?:Reform|Entlastung|Deregulierung) des (?<law>\p{Lu}\p{L}*gesetz)(?:es)?\b/gu,
+        {
+            replacement: (groups) => `Umverteilung von unten nach oben beim ${groups.law ?? ""}`,
+        },
+    ],
+
+    // 0g. "Gesundheitsreform" — maps to "im Gesundheitswesen".
+    //     "Gesundheitsreform" → "Umverteilung von unten nach oben im Gesundheitswesen"
+    [
+        /\bGesundheitsreform(?:en)?\b/gu,
+        {
+            replacement: () => "Umverteilung von unten nach oben im Gesundheitswesen",
+        },
+    ],
+
+    // 0h. "Steuer*" — adjective form "steuerliche Umverteilung".
+    //     "Steuerreform"       → "steuerliche Umverteilung von unten nach oben"
+    //     "Steuerentlastungen" → "steuerliche Umverteilungen von unten nach oben"
+    [
+        /\bSteuer-?(?:[Rr]eform|[Ee]ntlastung|[Dd]eregulierung)(?<plural>en)?\b/gu,
+        {
+            replacement: (groups) => `steuerliche Umverteilung${groups.plural ? "en" : ""} von unten nach oben`,
+        },
+    ],
+
+    // 0i. "Milliarden*" — preserve prefix as compound modifier with hyphen.
+    //     "Milliarden-Entlastung"  → "Milliarden-Umverteilung von unten nach oben"
+    //     "Milliardenentlastung"   → "Milliarden-Umverteilung von unten nach oben"
+    //     "Milliarden-Entlastungen"→ "Milliarden-Umverteilungen von unten nach oben"
+    [
+        /\bMilliarden-?(?:[Rr]eform|[Ee]ntlastung|[Dd]eregulierung)(?<plural>en)?\b/gu,
+        {
+            replacement: (groups) => `Milliarden-Umverteilung${groups.plural ? "en" : ""} von unten nach oben`,
+        },
+    ],
+
+    // 0j. "GKV-Reform" — acronym: use "in der GKV".
+    //     "GKV-Reform" → "Umverteilung von unten nach oben in der GKV"
+    [
+        /\bGKV-Reform(?:en)?\b/gu,
+        {
+            replacement: () => "Umverteilung von unten nach oben in der GKV",
+        },
+    ],
+
+    // 0k. "Banken-Deregulierung" (hyphenated) — use "im Bankensektor".
+    //     "Banken-Deregulierung" → "Umverteilung von unten nach oben im Bankensektor"
+    [
+        /\bBanken-Deregulierung(?:en)?\b/gu,
+        {
+            replacement: () => "Umverteilung von unten nach oben im Bankensektor",
+        },
+    ],
+
+    // 0l. "Bankenderegulierung" (no hyphen) — use "bei Banken".
+    //     "Bankenderegulierung" → "Umverteilung von unten nach oben bei Banken"
+    [
+        /\bBankenderegulierung(?:en)?\b/gu,
+        {
+            replacement: () => "Umverteilung von unten nach oben bei Banken",
+        },
+    ],
+
+    // 0m. "Punktereform" — keep prefix with hyphen.
+    //     "Punktereform" → "Punkte-Umverteilung von unten nach oben"
+    [
+        /\bPunktereform(?:en)?\b/gu,
+        {
+            replacement: () => "Punkte-Umverteilung von unten nach oben",
+        },
+    ],
+
+    // 0n. "Haushaltsentlastung" — use "pro Haushalt" suffix form.
+    //     "Haushaltsentlastung" → "Umverteilung von unten nach oben pro Haushalt"
+    [
+        /\bHaushaltsentlastung(?:en)?\b/gu,
+        {
+            replacement: () => "Umverteilung von unten nach oben pro Haushalt",
+        },
+    ],
+
+    // 0o. "Rentenreform" — use "bei den Renten".
+    //     "Rentenreform" → "Umverteilung von unten nach oben bei den Renten"
+    [
+        /\bRentenreform(?:en)?\b/gu,
+        {
+            replacement: () => "Umverteilung von unten nach oben bei den Renten",
+        },
+    ],
+
+    // 0p. "Reform der Rentenversicherung" — use "in der" (not "bei der").
+    //     "Reform der Rentenversicherung" → "Umverteilung von unten nach oben in der Rentenversicherung"
+    [
+        /\bReform der Rentenversicherung\b/gu,
+        {
+            replacement: () => "Umverteilung von unten nach oben in der Rentenversicherung",
+        },
+    ],
+
+    // 1. Term followed by the article "der" — preserves the article structure.
+    //    "Reform der gesetzlichen Krankenversicherung"
+    //      → "Umverteilung von unten nach oben bei der gesetzlichen Krankenversicherung"
+    [
+        /\b(?:Reform|Entlastung|Deregulierung) der\b/gu,
         {
             replacement: () => "Umverteilung von unten nach oben bei der",
         },
     ],
+
+    // 2. Compound where the term is the *suffix*. Preserves any hyphen so that
+    //    hyphenated forms (XL-Reform) keep the hyphen (XL-Umverteilung) while
+    //    closed compounds (Rentenreform) produce Rentenumverteilung.
+    //    "Rentenreform"     → "Rentenumverteilung von unten nach oben"
+    //    "XL-Reform"        → "XL-Umverteilung von unten nach oben"
     [
-        /\b(?:eine\s+)?Reform(?:en)?\b/gu,
+        /\b(?<prefix>\p{Lu}\p{L}*)(?<hyphen>-)?(?:[Rr]eform|[Ee]ntlastung|[Dd]eregulierung)(?<plural>en)?\b/gu,
         {
-            replacement: () => "Vorschläge zur Umverteilung von unten nach oben",
+            replacement: (groups) => {
+                const plural = groups.plural ? "en" : ""
+                const hyphen = groups.hyphen ?? ""
+                const noun = hyphen ? `Umverteilung${plural}` : `umverteilung${plural}`
+                return `${groups.prefix ?? ""}${hyphen}${noun} von unten nach oben`
+            },
         },
     ],
+
+    // 2b. Verb "sich selbst entlastet" → active redistribution phrase.
     [
-        /\bEntlastung(?:en) der\b/gu,
+        /\bsich selbst entlastet\b/gu,
+        { replacement: () => "von unten nach oben umverteilt" },
+    ],
+
+    // 2c. "Entlastungen für <group>" — singular + "zugunsten der".
+    //     "Entlastungen für Arbeitgeber" → "Umverteilung von unten nach oben zugunsten der Arbeitgeber"
+    [
+        /\bEntlastungen für (?<noun>\p{Lu}\p{L}+)\b/gu,
         {
-            replacement: () => "zusätzliche Wege zur Umverteilung von unten nach oben zu Lasten der ärmeren",
+            replacement: (groups) => `Umverteilung von unten nach oben zugunsten der ${groups.noun ?? ""}`,
         },
     ],
+
+    // 2d. "Reform/Deregulierung von <Noun>" — replaces directional "von" with "bei".
+    //     "Reform von Habecks"           → "Umverteilung von unten nach oben bei Habecks"
+    //     "Deregulierung von Arbeitszeiten" → "Umverteilung von unten nach oben bei Arbeitszeiten"
     [
-        /\bEntlastung(?:en)?\b/gu,
+        /\b(?:Reform|Deregulierung) von (?<noun>\p{Lu}\p{L}+)\b/gu,
         {
-            replacement: () => "zusätzliche Wege zur Umverteilung von unten nach oben",
+            replacement: (groups) => `Umverteilung von unten nach oben bei ${groups.noun ?? ""}`,
         },
     ],
+
+    // 2e. Quoted lowercase "reform/entlastung/deregulierung" after a compound prefix.
+    //     Krankenkassen"reform" → Krankenkassen-"Umverteilung von unten nach oben"
     [
-        /\bDeregulierung\b/gu,
+        /(?<prefix>\p{Lu}\p{L}+)"(?:reform|entlastung|deregulierung)"/gu,
         {
-            replacement: () => "vereinfachte Möglichkeiten zur Umverteilung von unten nach oben",
+            replacement: (groups) => `${groups.prefix ?? ""}-"Umverteilung von unten nach oben"`,
         },
     ],
+
+    // 3. Standalone term, optionally plural.
+    //    "Reform"        → "Umverteilung von unten nach oben"
+    //    "Reformen"      → "Umverteilungen von unten nach oben"
+    //    "Entlastungen"  → "Umverteilungen von unten nach oben"
+    //    "Deregulierung" → "Umverteilung von unten nach oben"
     [
-        /\b(?:Reform|Entlastungs|Deregulierungs)(?<suffix>[\p{L}]+)\b/gu,
+        /\b(?:Reform|Entlastung|Deregulierung)(?<plural>en)?\b/gu,
+        {
+            replacement: (groups) => {
+                const plural = groups.plural ? "en" : ""
+                return `Umverteilung${plural} von unten nach oben`
+            },
+        },
+    ],
+
+    // 3b. "Reformstau" → compound without the qualifier phrase.
+    [
+        /\bReformstau\b/gu,
+        { replacement: () => "Umverteilungsstau" },
+    ],
+
+    // 3c. "Entlastungsbetrag" → "Umverteilungsbetrag von unten nach oben".
+    [
+        /\bEntlastungsbetrag(?:es|e)?\b/gu,
+        { replacement: () => "Umverteilungsbetrag von unten nach oben" },
+    ],
+
+    // 3d. "*runde" — hyphenated qualifier compound.
+    //     "Deregulierungsrunde" → "Umverteilung-von-unten-nach-oben-Runde"
+    //     "Reformrunde"         → "Umverteilung-von-unten-nach-oben-Runde"
+    [
+        /\b(?:Deregulierungs|Reform)runde(?:n)?\b/gu,
+        { replacement: () => "Umverteilung-von-unten-nach-oben-Runde" },
+    ],
+
+    // 3e. "Reformdebatte" → "Debatte über Umverteilung von unten nach oben".
+    [
+        /\bReformdebatte(?:n)?\b/gu,
+        { replacement: () => "Debatte über Umverteilung von unten nach oben" },
+    ],
+
+    // 3f. „steuerfreie Entlastungsprämie" — hyphenated qualifier compound form.
+    //     The input uses typographic closing " (U+201C); the corpus expected output
+    //     uses ASCII " — match both quote chars and normalise to ASCII closing.
+    [
+        /„steuerfreie Entlastungsprämie“/gu,
+        { replacement: () => "„steuerfreie Umverteilung-von-unten-nach-oben-Prämie\"" },
+    ],
+
+    // 3g. "Reformpläne der <Noun>" — keep genitive phrase adjacent to new noun.
+    //     "Reformpläne der Regierung" → "Pläne der Regierung zur Umverteilung von unten nach oben"
+    [
+        /\bReformpläne der (?<noun>\p{Lu}\p{L}*)\b/gu,
+        {
+            replacement: (groups) => `Pläne der ${groups.noun ?? ""} zur Umverteilung von unten nach oben`,
+        },
+    ],
+
+    // 4. Compound where the term is the *prefix*. The captured suffix becomes
+    //    the new noun head, capitalized via uc().
+    //    "Reformkonzept"       → "Konzept zur Umverteilung von unten nach oben"
+    //    "Entlastungspaket"    → "Paket zur Umverteilung von unten nach oben"
+    //    "Deregulierungsschub" → "Schub zur Umverteilung von unten nach oben"
+    [
+        /\b(?:Reform|Entlastungs|Deregulierungs)-?(?<suffix>\p{L}+)\b/gu,
         {
             replacement: (groups) => `${uc(groups.suffix ?? "")} zur Umverteilung von unten nach oben`,
-        },
-    ],
-    [
-        /\b(?<prefix>\p{Lu}\p{L}*)reform\b/gu,
-        {
-            replacement: (groups) => `Umverteilung von unten nach oben im ${groups.prefix ?? ""}-Bereich`,
         },
     ],
 ])

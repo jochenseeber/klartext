@@ -269,6 +269,11 @@
             "cache": false,
             "dependsOn": ["release:dev"]
         },
+        "scrape-sentences": {
+            "executor": "nx:run-commands",
+            "options": { "command": "tsx scripts/scrape-sentences.ts" },
+            "cache": false
+        },
         "ship": {
             "executor": "nx:noop",
             "dependsOn": ["ship:github", "ship:mozilla", "ship:chrome"]

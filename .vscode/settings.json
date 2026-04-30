@@ -61,6 +61,7 @@
     "claudeCode.preferredLocation": "sidebar",
     "debug.autoExpandLazyVariables": "on",
     "diffEditor.ignoreTrimWhitespace": false,
+    "diffEditor.renderSideBySide": true,
     "editor.accessibilitySupport": "off",
     "editor.detectIndentation": false,
     "editor.fontFamily": "Input",
