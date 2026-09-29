@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.3.0 (2026-09-29)
+
+### Features
+
+- replace Klimaschutz with Rettung des Planeten
+  ([77efaf7](https://github.com/jochenseeber/klartext/commit/77efaf784a80f959b2e055e47c72928c8d150853))
+- replace Pflegereform with "Umverteilung von unten nach oben bei Pflege"
+  ([2af2439](https://github.com/jochenseeber/klartext/commit/2af24397627c7e66186e5c1f05bad2e54bbd7b23))
+
 ## 1.2.0 (2026-04-30)
 
 ### Features
