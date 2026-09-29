@@ -8,6 +8,12 @@ It also rewrites simple affix compounds around those keywords
 case-insensitively, for example `Steuerreform`, `Reformpaket`, `Steuer-Reform`,
 and `Reform-Paket`.
 
+It also replaces `Klimaschutz` with `Rettung des Planeten`. Because the new
+noun is feminine, articles and adjective endings are adjusted, for example
+`den wirksamen Klimaschutz` becomes `die wirksame Rettung des Planeten`.
+Compounds are split up, so `Klimaschutzgesetz` becomes
+`Gesetz zur Rettung des Planeten`.
+
 The replacement only runs on pages that mention `CDU`, `CSU`, `SPD`, `FDP`,
 `AfD`, or a curated list of leading politicians from those parties.
 
@@ -55,9 +61,9 @@ including the base editor defaults, web tooling, and YAML support.
 
 - `src/content.ts`: content script that rewrites text nodes, watches DOM
   changes, and manages the on-page toggle.
-- `src/conversions.ts`: the conversions
-  (`Reform`/`Entlastung`/`Deregulierung`), each defined by source noun, target
-  phrase, compound connectors, and special-case overrides.
+- `src/conversions.ts`: the conversions (`Klimaschutz`, `Reform`/`Entlastung`/
+  `Deregulierung`), each defined by source noun, target phrase, compound
+  connectors, and special-case overrides.
 - `src/conversion.ts`: builds the ordered replacement rules for a conversion.
 - `src/grammar.ts`: German declension tables used to re-inflect determiners and
   adjectives when the target noun has a different gender.

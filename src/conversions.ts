@@ -1,5 +1,33 @@
 import { Conversion, type ReplacementRule } from "./conversion"
 
+// "Klimaschutz" → "Rettung des Planeten". The target is feminine and definite,
+// so determiners and adjectives are re-inflected and bare nouns get an
+// article: "den wirksamen Klimaschutz" → "die wirksame Rettung des Planeten".
+const KLIMASCHUTZ = new Conversion({
+    source: {
+        nouns: ["Klimaschutz"],
+        compoundForms: ["Klimaschutz"],
+        gender: "masculine",
+        plural: null,
+        genitive: "es",
+    },
+    target: {
+        noun: "Rettung",
+        plural: "en",
+        gender: "feminine",
+        complement: "des Planeten",
+        definite: true,
+        suffixCompounds: false,
+    },
+    connectors: [
+        { head: /^(?:debatte|diskussion|streit)/u, connector: "über die" },
+        { head: /^(?:beauftragt|minister|ressort)/u, connector: "für die" },
+        { head: /^(?:frage|gr[uü]nd|interesse|kosten|sicht|zweck)/u, connector: "der" },
+    ],
+    defaultConnector: "zur",
+    overrides: [],
+})
+
 // "Reform", "Entlastung", "Deregulierung" → "Umverteilung von unten nach
 // oben". All nouns are feminine, so the words around them stay as they are.
 // The overrides are special cases tuned against spec/sentences.md.
@@ -195,9 +223,12 @@ const UMVERTEILUNG = new Conversion({
     overrides: UMVERTEILUNG_OVERRIDES,
 })
 
+// Klimaschutz runs first so that "Klimaschutzreform" becomes "Reform zur
+// Rettung des Planeten" before the reform rules see it.
 const REPLACEMENT_RULES: readonly ReplacementRule[] = [
     // Strip zero-width spaces that web articles sometimes contain.
     { pattern: /\u200B/gu, replacement: () => "" },
+    ...KLIMASCHUTZ.rules,
     ...UMVERTEILUNG.rules,
 ]
 
