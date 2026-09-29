@@ -57,6 +57,17 @@ describe("applyReplacementRules", () => {
         )
     })
 
+    it.each([
+        ["Das Reform-Paket kommt.", "Das Paket zur Umverteilung von unten nach oben kommt."],
+        ["Die Reform-Politik scheitert.", "Die Politik der Umverteilung von unten nach oben scheitert."],
+        ["Die Entlastungsdebatte läuft.", "Die Debatte über Umverteilung von unten nach oben läuft."],
+        ["Die Reformdebatten laufen.", "Die Debatten über Umverteilung von unten nach oben laufen."],
+        ["Der Reformer spricht.", "Der Reformer spricht."],
+        ["Das Reform- und Sparpaket.", "Das Reform- und Sparpaket."],
+    ])("handles hyphenated and plural reform compounds: %s", (input, expected) => {
+        expect(applyReplacementRules(input)).toBe(expected)
+    })
+
     it("uses 'an' for *bedarf compounds", () => {
         expect(applyReplacementRules("Es besteht Reformbedarf.")).toBe(
             "Es besteht Bedarf an Umverteilung von unten nach oben.",

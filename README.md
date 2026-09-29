@@ -55,6 +55,12 @@ including the base editor defaults, web tooling, and YAML support.
 
 - `src/content.ts`: content script that rewrites text nodes, watches DOM
   changes, and manages the on-page toggle.
+- `src/conversions.ts`: the conversions
+  (`Reform`/`Entlastung`/`Deregulierung`), each defined by source noun, target
+  phrase, compound connectors, and special-case overrides.
+- `src/conversion.ts`: builds the ordered replacement rules for a conversion.
+- `src/grammar.ts`: German declension tables used to re-inflect determiners and
+  adjectives when the target noun has a different gender.
 - `static/manifest.json`: extension manifest copied into the build output.
 - `scripts/build.mjs`: esbuild-based bundler for the content script.
 
