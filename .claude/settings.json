@@ -35,7 +35,21 @@
                 "~/.local/bin",
                 "~/.rbenv",
                 "~/CLAUDE.md",
-                "~/Library/Caches/dprint"
+                "~/Library/Caches/dprint",
+                "~/Library/Caches/pnpm",
+                "~/Library/pnpm"
+            ],
+            "allowWrite": [
+                "~/Library/Caches/pnpm",
+                "~/Library/pnpm"
+            ]
+        },
+        "network": {
+            "allowMachLookup": [
+                "com.apple.trustd.agent"
+            ],
+            "allowedDomains": [
+                "registry.npmjs.org"
             ]
         }
     }
