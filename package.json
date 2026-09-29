@@ -2,6 +2,7 @@
     "name": "klartext",
     "version": "1.3.0-dev",
     "description": "Der Klartext zu politischen Reden",
+    "type": "module",
     "packageManager": "pnpm@10.7.1",
     "repository": {
         "type": "git",
