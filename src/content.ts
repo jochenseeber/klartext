@@ -47,7 +47,13 @@ const ELIGIBILITY_PATTERN = new RegExp(
     "iu",
 )
 
-const modifiedNodes = new Map<Text, string>()
+// Text of a node before and after the extension rewrote it.
+export interface TextRewrite {
+    original: string
+    rewritten: string
+}
+
+const modifiedNodes = new Map<Text, TextRewrite>()
 
 let isEnabled = true
 let pageIsEligible = false
@@ -101,19 +107,37 @@ function rewriteTextNode(node: Text): void {
         return
     }
 
-    const originalValue = modifiedNodes.get(node) ?? node.nodeValue ?? ""
-    const rewrittenValue = applyReplacementRules(originalValue)
+    const previous = modifiedNodes.get(node)
+    const next = planTextRewrite(node.nodeValue ?? "", previous)
 
-    if (rewrittenValue !== originalValue) {
-        modifiedNodes.set(node, originalValue)
-        node.nodeValue = rewrittenValue
+    if (next === undefined) {
+        modifiedNodes.delete(node)
+    }
+    else if (next !== previous) {
+        modifiedNodes.set(node, next)
+        node.nodeValue = next.rewritten
     }
 }
 
+// Decides the rewrite state of a text node from its current text. Returns the
+// previous entry unchanged while the node still holds the extension's own
+// rewrite: writing it again would queue another mutation record, and the
+// observer would rewrite the node forever. Text changed by the page becomes
+// the new original, and undefined means the node needs no rewrite.
+export function planTextRewrite(current: string, previous: TextRewrite | undefined): TextRewrite | undefined {
+    if (previous !== undefined && current === previous.rewritten) {
+        return previous
+    }
+
+    const rewritten = applyReplacementRules(current)
+    return rewritten === current ? undefined : { original: current, rewritten }
+}
+
 function restoreAllNodes(): void {
-    for (const [node, originalValue] of modifiedNodes.entries()) {
-        if (node.isConnected) {
-            node.nodeValue = originalValue
+    for (const [node, { original, rewritten }] of modifiedNodes.entries()) {
+        // Leave text the page has replaced since the rewrite.
+        if (node.isConnected && node.nodeValue === rewritten) {
+            node.nodeValue = original
         }
     }
 

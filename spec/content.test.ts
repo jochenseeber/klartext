@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { applyReplacementRules, isEligibleText, readStoredBoolean } from "../src/content"
+import { applyReplacementRules, isEligibleText, planTextRewrite, readStoredBoolean } from "../src/content"
 
 describe("isEligibleText", () => {
     it("detects political terms case-insensitively", () => {
@@ -197,6 +197,36 @@ describe("applyReplacementRules", () => {
 
     it("leaves unrelated text unchanged", () => {
         expect(applyReplacementRules("Heute bleibt alles beim Alten.")).toBe("Heute bleibt alles beim Alten.")
+    })
+})
+
+describe("planTextRewrite", () => {
+    const original = "Merz sagt: Die Reform kommt."
+    const rewritten = "Merz sagt: Die Umverteilung von unten nach oben kommt."
+
+    it("rewrites a node seen for the first time", () => {
+        expect(planTextRewrite(original, undefined)).toEqual({ original, rewritten })
+    })
+
+    it("keeps the node's own rewrite without writing again", () => {
+        const previous = { original, rewritten }
+
+        // Returning the same entry means no write, so the extension's own
+        // mutation does not trigger another rewrite.
+        expect(planTextRewrite(rewritten, previous)).toBe(previous)
+    })
+
+    it("treats text changed by the page as the new original", () => {
+        const changed = "Die Reform ist beschlossen."
+
+        expect(planTextRewrite(changed, { original, rewritten })).toEqual({
+            original: changed,
+            rewritten: "Die Umverteilung von unten nach oben ist beschlossen.",
+        })
+    })
+
+    it("forgets nodes that no longer need a rewrite", () => {
+        expect(planTextRewrite("Heute bleibt alles beim Alten.", { original, rewritten })).toBeUndefined()
     })
 })
 
