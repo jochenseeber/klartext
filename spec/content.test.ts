@@ -68,6 +68,13 @@ describe("applyReplacementRules", () => {
         expect(applyReplacementRules(input)).toBe(expected)
     })
 
+    it.each([
+        ["Die Pflegereform kommt.", "Die Umverteilung von unten nach oben bei Pflege kommt."],
+        ["Die Pflege-Reform kommt.", "Die Umverteilung von unten nach oben bei Pflege kommt."],
+    ])("uses 'bei Pflege' for Pflegereform: %s", (input, expected) => {
+        expect(applyReplacementRules(input)).toBe(expected)
+    })
+
     it("uses 'an' for *bedarf compounds", () => {
         expect(applyReplacementRules("Es besteht Reformbedarf.")).toBe(
             "Es besteht Bedarf an Umverteilung von unten nach oben.",

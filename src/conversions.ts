@@ -128,6 +128,13 @@ const UMVERTEILUNG_OVERRIDES: readonly ReplacementRule[] = [
         replacement: () => "Umverteilung von unten nach oben bei den Renten",
     },
 
+    // "Pflegereform" — use "bei Pflege".
+    //   "Pflegereform" → "Umverteilung von unten nach oben bei Pflege"
+    {
+        pattern: /\bPflege-?[Rr]eform(?:en)?\b/gu,
+        replacement: () => "Umverteilung von unten nach oben bei Pflege",
+    },
+
     // "Reform der Rentenversicherung" — use "in der" (not "bei der").
     //   "Reform der Rentenversicherung" → "Umverteilung von unten nach oben in der Rentenversicherung"
     {
