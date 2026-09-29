@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1](https://github.com/jochenseeber/klartext/compare/v1.3.0...v1.3.1) (2026-09-29)
+
+### Bug Fixes
+
+- stop the page from hanging when it adds text after loading
+  ([166b194](https://github.com/jochenseeber/klartext/commit/166b19479b6687689e4ca242360f6e8dc84edef3))
+
 ## 1.3.0 (2026-09-29)
 
 ### Features
