@@ -1,8 +1,19 @@
 import { spawnSync } from "node:child_process"
-import { existsSync, mkdirSync, rmSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs"
 import { resolve } from "node:path"
 
 import { readPackageJson, ROOT, runEntrypoint } from "./util.js"
+
+// Reads .extensionignore as zip exclude patterns. web-ext lets "**/" match the
+// top level as well, zip does not, so "**/.DS_Store" also yields ".DS_Store".
+function readExcludePatterns(ignorePath: string): string[] {
+    const patterns = readFileSync(ignorePath, "utf8")
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+
+    return patterns.flatMap((pattern) => pattern.startsWith("**/") ? [pattern, pattern.slice("**/".length)] : [pattern])
+}
 
 function main(): void {
     const { version } = readPackageJson()
@@ -20,7 +31,7 @@ function main(): void {
 
     const result = spawnSync(
         "zip",
-        ["-qr", zipPath, ".", `-x@${ignorePath}`],
+        ["-qr", zipPath, ".", "-x", ...readExcludePatterns(ignorePath)],
         { cwd: distDir, stdio: "inherit" },
     )
 
